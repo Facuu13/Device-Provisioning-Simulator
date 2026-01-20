@@ -1,5 +1,7 @@
 from fastapi import FastAPI, HTTPException
 import time
+from db import init_db, insert_device, list_devices
+import sqlite3
 
 app = FastAPI()
 
@@ -8,25 +10,36 @@ app = FastAPI()
 devices = {}
 token_fijo= "PROVISION-1234"
 
+@app.on_event("startup")
+def startup_event():
+    init_db()
+
+
 # Endpoint para crear un nuevo dispositivo
 @app.post("/devices")
 def create_device(payload: dict):
     device_id = payload.get("device_id")
-    if device_id in devices:
-        raise HTTPException(status_code=400, detail="Device already exists")
-    
+
+    if not device_id or not isinstance(device_id, str):
+        raise HTTPException(status_code=400, detail="device_id is required (string)")
+
     device = {
         "device_id": device_id,
-        "state":"NEW",
+        "state": "NEW",
         "created_at": int(time.time()),
         "provisioned_at": None,
         "provision_token": None,
         "activated_at": None,
-        "fw_version": None
+        "fw_version": None,
     }
 
-    devices[device_id] = device
+    try:
+        insert_device(device)
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=409, detail="device already exists")
+
     return device
+    
     # {"device_id":"dev001"}
 
 # Endpoint para provisionar un dispositivo
@@ -69,4 +82,4 @@ def activate_device(device_id: str, payload: dict):
 ## Endpoint para obtener la lista de dispositivos
 @app.get("/devices")
 def get_devices():
-    return (list(devices.values()))
+    return list_devices()
