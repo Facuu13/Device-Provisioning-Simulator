@@ -3,8 +3,8 @@ import sqlite3
 DB_PATH = 'devices.db'
 
 def get_conn():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = sqlite3.connect(DB_PATH) # Conectar a la base de datos
+    conn.row_factory = sqlite3.Row # Para obtener filas como diccionarios
     return conn
 
 def init_db():
