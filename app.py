@@ -20,7 +20,9 @@ def create_device(payload: dict):
         "state":"NEW",
         "created_at": int(time.time()),
         "provisioned_at": None,
-        "provision_token": None
+        "provision_token": None,
+        "activated_at": None,
+        "fw_version": None
     }
 
     devices[device_id] = device
@@ -47,6 +49,22 @@ def provision_device(device_id: str, payload: dict):
     return device
     # {"token":"PROVISION-1234"}
 
+# Endpoint para activar un dispositivo
+@app.post("/devices/{device_id}/activate")
+def activate_device(device_id: str, payload: dict):
+    device = devices.get(device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    
+    if device["state"] != "PROVISIONED":
+        raise HTTPException(status_code=409, detail="Device not provisioned")
+    
+    fw_version = payload.get("fw_version")
+    device["state"] = "ACTIVE"
+    device["activated_at"] = int(time.time())
+    device["fw_version"] = fw_version
+    return device
+    # {"fw_version":"1.0.0"}
 
 ## Endpoint para obtener la lista de dispositivos
 @app.get("/devices")
