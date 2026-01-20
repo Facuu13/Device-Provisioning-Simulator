@@ -46,8 +46,32 @@ def list_devices():
     conn = get_conn()
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM devices')
-    rows = cursor.fetchall()
-    devices = [dict(row) for row in rows]
+    rows = cursor.fetchall() # Obtener todas las filas
+    devices = [dict(row) for row in rows] # Convertir filas a diccionarios
     conn.close()
     return devices
 
+def get_device(device_id: str):
+    conn = get_conn() # Conectar a la base de datos
+    cursor = conn.cursor() # Crear un cursor
+    cursor.execute('SELECT * FROM devices WHERE device_id = ?', (device_id,)) # Ejecutar consulta
+    row = cursor.fetchone() # Obtener una fila
+    conn.close() # Cerrar la conexión
+    return dict(row) if row else None # Devolver la fila como diccionario o None si no existe
+
+def update_device(device_id: str, fields: dict):
+    conn = get_conn()
+    cursor = conn.cursor()
+    
+    set_clause = ', '.join([f"{key} = ?" for key in fields.keys()])
+    values = list(fields.values())
+    values.append(device_id)
+    
+    cursor.execute(f'''
+        UPDATE devices
+        SET {set_clause}
+        WHERE device_id = ?
+    ''', values)
+    
+    conn.commit()
+    conn.close()

@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 import time
-from db import init_db, insert_device, list_devices
+from db import init_db, insert_device, list_devices, get_device, update_device
 import sqlite3
 
 app = FastAPI()
@@ -8,7 +8,7 @@ app = FastAPI()
 #{"device_id":"dev001","state":"NEW","created_at":1768599000}
 
 devices = {}
-token_fijo= "PROVISION-1234"
+PROVISION_TOKEN = "PROVISION-1234"
 
 @app.on_event("startup")
 def startup_event():
@@ -45,38 +45,47 @@ def create_device(payload: dict):
 # Endpoint para provisionar un dispositivo
 @app.post("/devices/{device_id}/provision")
 def provision_device(device_id: str, payload: dict):
-    device = devices.get(device_id)
+    device = get_device(device_id)
     if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
-    
+        raise HTTPException(status_code=404, detail="device not found")
+
     if device["state"] != "NEW":
-        raise HTTPException(status_code=409, detail="Device already provisioned")
-    
+        raise HTTPException(status_code=409, detail="device not in NEW state")
+
     token = payload.get("token")
-    if token != token_fijo:
-        raise HTTPException(status_code=401, detail="Invalid provision token")
-    
-    device["state"] = "PROVISIONED"
-    device["provisioned_at"] = int(time.time())
-    device["provision_token"] = token
-    return device
+    if token != PROVISION_TOKEN:
+        raise HTTPException(status_code=401, detail="invalid token")
+
+    update_device(device_id, {
+        "state": "PROVISIONED",
+        "provisioned_at": int(time.time()),
+        "provision_token": token
+    })
+
+    return get_device(device_id)
     # {"token":"PROVISION-1234"}
 
 # Endpoint para activar un dispositivo
 @app.post("/devices/{device_id}/activate")
-def activate_device(device_id: str, payload: dict):
-    device = devices.get(device_id)
+def activate_device(device_id: str, payload: dict = {}):
+    device = get_device(device_id)
     if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
-    
+        raise HTTPException(status_code=404, detail="device not found")
+
     if device["state"] != "PROVISIONED":
-        raise HTTPException(status_code=409, detail="Device not provisioned")
-    
-    fw_version = payload.get("fw_version")
-    device["state"] = "ACTIVE"
-    device["activated_at"] = int(time.time())
-    device["fw_version"] = fw_version
-    return device
+        raise HTTPException(status_code=409, detail="device not provisioned")
+
+    fields = {
+        "state": "ACTIVE",
+        "activated_at": int(time.time())
+    }
+
+    fw = payload.get("fw_version")
+    if fw:
+        fields["fw_version"] = fw
+
+    update_device(device_id, fields)
+    return get_device(device_id)
     # {"fw_version":"1.0.0"}
 
 ## Endpoint para obtener la lista de dispositivos
